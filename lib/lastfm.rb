@@ -28,10 +28,12 @@ class Lastfm
   class Error < StandardError; end
   class ApiError < Error
     attr_reader :code
+    attr_reader :http_code
 
-    def initialize(message, code = nil)
+    def initialize(message, code = nil, http_code = nil)
       super(message)
       @code = code
+      @http_code = http_code
     end
   end
 
@@ -92,7 +94,7 @@ class Lastfm
     MethodCategory::Radio.new(self)
   end
 
-  def request(method, params = {}, http_method = :get, with_signature = false, with_session = false, use_https = false)
+  def request(method, params = {}, http_method = :get, with_signature = false, with_session = false, use_https = true)
     params[:method] = method
     params[:api_key] = @api_key
 
@@ -110,15 +112,15 @@ class Lastfm
 
     request_args = [http_method, '/', { (http_method == :post ? :body : :query) => params }]
 
-    response = if use_https
+    http_response = if use_https
       HTTPSRequest.send(*request_args)
     else
       HTTPRequest.send(*request_args)
     end
 
-    response = Response.new(response.body)
+    response = Response.new(http_response.body)
     unless response.success?
-      raise ApiError.new(response.message, response.error)
+      raise ApiError.new(response.message, response.error, http_response.code)
     end
 
     response
